@@ -1,0 +1,134 @@
+#include <SoftwareSerial.h>
+#include<Wire.h>
+
+#define MPU 0x68
+
+SoftwareSerial bluetooth(14, 15);
+
+double baseGyrX, baseGyrY, baseGyrZ;
+double desGyrX[64], desGyrY[64], desGyrZ[64];
+double filGyrX, filGyrY, filGyrZ;
+double espacoX, espacoY, espacoZ;
+double X,Y,Z;
+
+double timeVet[3];
+
+int i;
+int j=0;
+
+double minX, maxX;
+
+int x,y,z;
+
+void setup() {
+  //inicialização:
+  Serial.begin(9600);
+  bluetooth.begin(9600);
+  
+  Wire.begin();
+
+  Wire.beginTransmission(MPU);
+  Wire.write(0x1B);
+  Wire.write(0x00000000);
+  Wire.endTransmission();
+  
+  Wire.beginTransmission(MPU);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission();
+  
+  //define as bases de cada angulo.
+  Calibrate();
+  
+  espacoX = (baseGyrX * 0.0012);
+  espacoY = (baseGyrY * 0.0012);
+  espacoZ = (baseGyrZ * 0.0012);
+  i=0;
+}
+
+void loop() {
+  
+  timeVet[2]=millis();
+
+  Gyro();
+  
+  //calcula o tempo para receber os dados;
+  timeVet[1]=millis();
+  timeVet[0] = timeVet[1] - timeVet[2];
+
+  
+  if(i==63){
+    i=0;
+   }
+  else{
+    i=i+1;
+   }
+    
+  desGyrX[i]=x;
+  desGyrY[i]=y;
+  desGyrZ[i]=z;
+  
+  filGyrX=0; 
+  filGyrY=0;
+  filGyrZ=0;
+  
+  if(desGyrX[63]!=0){    
+    for(j=0;j<64;j++){
+        filGyrX=filGyrX + desGyrX[j]; 
+        filGyrY=filGyrY + desGyrY[j];
+        filGyrZ=filGyrZ + desGyrZ[j];
+        //Serial.println(j);
+        //Serial.print("filx=");Serial.println(desGyrX[j]);
+        //Serial.print("fily=");Serial.println(desGyrY[j]);
+        //Serial.print("filz=");Serial.println(desGyrZ[j]);
+    }
+    //faz a média dos 64 valores anteriores
+    filGyrX = (filGyrX/64) ;
+    filGyrY = (filGyrY/64) ;
+    filGyrZ = (filGyrZ/64) ;
+ 
+    //normaliza a média em relação a base e depois transforma velocidade para deslocamento.
+    filGyrX= (filGyrX - baseGyrX) * (timeVet[0] * 0.001);
+    filGyrY= (filGyrY - baseGyrY) * (timeVet[0] * 0.001);
+    filGyrZ= (filGyrZ - baseGyrZ) * (timeVet[0] * 0.001);
+    
+    //integral do deslocamento
+    espacoX= espacoX + filGyrX;
+    espacoY= espacoY + filGyrY;
+    espacoZ= espacoZ + filGyrZ;
+    
+    Serial.println(i);
+    Serial.print("filx=");Serial.println(espacoX);
+    Serial.print("fily=");Serial.println(espacoY);
+    Serial.print("filz=");Serial.println(espacoZ);
+    Serial.print("time = ");Serial.println(timeVet[0]);
+  }   
+}
+//recebe as velocidades do MPU
+void Gyro(){
+  Wire.beginTransmission(MPU);
+  Wire.write(0x43);
+  Wire.endTransmission();
+  Wire.requestFrom(MPU,6);
+  while(Wire.available()<6);
+  x=Wire.read()<<8|Wire.read();
+  y=Wire.read()<<8|Wire.read();
+  z=Wire.read()<<8|Wire.read();
+}
+//calibração do dispositivo
+void Calibrate(){
+ int i;
+ 
+ for(i=0;i<1024; i++){
+  Gyro();
+  baseGyrX = baseGyrX + x; // Accumulate Samples
+  baseGyrY = baseGyrY + y;
+  baseGyrZ = baseGyrZ + z;
+  }
+  baseGyrX= baseGyrX /1024;
+  baseGyrY= baseGyrY /1024;
+  baseGyrZ= baseGyrZ /1024;
+ Serial.print("Base X= ");Serial.print(baseGyrX);
+ Serial.print(" Base Y= ");Serial.print(baseGyrY);
+ Serial.print(" Base Z= ");Serial.println(baseGyrZ);
+}
