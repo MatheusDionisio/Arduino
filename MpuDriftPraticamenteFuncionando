@@ -12,11 +12,10 @@ double espacoX, espacoY, espacoZ;
 double X,Y,Z;
 double sensivity=131;
 double timeVet[3];
+double maxX=-10000, minX=10000, maxY, minY, maxZ, minZ;
 
 int i;
 int j=0;
-
-double minX, maxX;
 
 int x,y,z;
 
@@ -36,8 +35,10 @@ void setup() {
   Wire.write(0);
   Wire.endTransmission();
   Calibrate();
+  maxX=((maxX-baseGyrX)/8)+baseGyrX;
+  minX=((minX-baseGyrX)/8)+baseGyrX;
   
-  espacoX = (baseGyrX * 0.0012);
+  espacoX = (baseGyrX * 0.0012)*57,2958;
   espacoY = (baseGyrY * 0.0012);
   espacoZ = (baseGyrZ * 0.0012);
   i=0;
@@ -78,15 +79,19 @@ void loop() {
         //Serial.print("fily=");Serial.println(desGyrY[j]);
         //Serial.print("filz=");Serial.println(desGyrZ[j]);
     }
-    filGyrX = (filGyrX/64) ;//* (timeVet[0] * 0.001);
-    filGyrY = (filGyrY/64) ;//* (timeVet[0] * 0.001);
-    filGyrZ = (filGyrZ/64) ;//* (timeVet[0] * 0.001);
- 
-    filGyrX= ((filGyrX - baseGyrX)/ sensivity) * (timeVet[0] * 0.001) *57,2958;
-    filGyrY= ((filGyrY - baseGyrY)/ sensivity) * (timeVet[0] * 0.001) *57,2958;
-    filGyrZ= ((filGyrZ - baseGyrZ)/ sensivity) * (timeVet[0] * 0.001) *57,2958;
-      
-    espacoX= espacoX + filGyrX;
+    filGyrX = (filGyrX/64) ;
+    filGyrY = (filGyrY/64) ;
+    filGyrZ = (filGyrZ/64) ;
+    filGyrX = (filGyrX/131) ;
+    filGyrY = (filGyrY/131) ;
+    filGyrZ = (filGyrZ/131) ;
+
+    if((filGyrX>maxX)||(filGyrX<minX)){
+      filGyrX= ((filGyrX - baseGyrX)) * (timeVet[0] / 1000) *57,2958;
+      espacoX= espacoX + filGyrX;
+    }
+    filGyrY= ((filGyrY - baseGyrY)/ sensivity) * (timeVet[0] / 1000) *57,2958;
+    filGyrZ= ((filGyrZ - baseGyrZ)/ sensivity) * (timeVet[0] / 1000) *57,2958;
     espacoY= espacoY + filGyrY;
     espacoZ= espacoZ + filGyrZ;
     
@@ -117,10 +122,24 @@ void Calibrate(){
   baseGyrX = baseGyrX + x; // Accumulate Samples
   baseGyrY = baseGyrY + y;
   baseGyrZ = baseGyrZ + z;
-  }
+  if(x>maxX){
+    maxX=x;
+   }
+  if(x<minX){
+    minX=x;
+   }
+ }
+  maxX=maxX/131;
+  minX=minX/131;
+  
   baseGyrX= baseGyrX /1024;
   baseGyrY= baseGyrY /1024;
   baseGyrZ= baseGyrZ /1024;
+  
+  baseGyrX= baseGyrX /131;
+  baseGyrY= baseGyrY /131;
+  baseGyrZ= baseGyrZ /131;
+  
  Serial.print("Base X= ");Serial.print(baseGyrX);
  Serial.print(" Base Y= ");Serial.print(baseGyrY);
  Serial.print(" Base Z= ");Serial.println(baseGyrZ);
